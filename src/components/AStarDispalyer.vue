@@ -22,7 +22,7 @@
                     v-model="select_model"
             ><span>设置终点</span></label>
             <button @click="clear_all_blocks">清空画面</button>
-            <button>计算道路</button>
+            <button @click="find_and_show_path">计算道路</button>
         </DisplayerOption>
         <div
             ondragstart="return false;" onselectstart="return false;" unselectable="on"
@@ -51,8 +51,27 @@
       this.x = x;
       this.y = y;
       this.block_type = null;
-    }
 
+      this.father = null;
+      this.G = 999;
+      this.is_blocked = false;
+      this.is_path = false;
+    }
+    //重置寻路数据
+    refresh(){
+      this.father = null;
+      this.G = 999;
+      this.is_blocked = this.block_type==="wall";
+    }
+    getH(aim_point){
+      return Math.abs(aim_point.x - this.x) + Math.abs(aim_point.y - this.y);
+    }
+    getG(){
+      return this.G;
+    }
+    getF(aim_point){
+      return this.getH(aim_point) + this.getG();
+    }
   }
   export default {
     name: "AStarDisplayer",
@@ -95,6 +114,7 @@
             width: (this.boxsize + 1) * this.mapsize[0] + "px",
             height: (this.boxsize + 1) * this.mapsize[1] + "px",
             display: "flex",
+            flexDirection:"column",
             flexWrap:"wrap"
           }
         };
@@ -114,12 +134,16 @@
             point.block_type = null;
             break;
           case "set_start":
+            if(point.block_type)
+              return;
             if(this.start_point)
                 this.start_point.block_type = null;
             this.start_point = point;
             point.block_type = "start";
             break;
           case "set_end":
+            if(point.block_type)
+              return;
             if(this.end_point)
                 this.end_point.block_type = null;
             this.end_point = point;
@@ -138,6 +162,42 @@
           point.block_type = null;
         }
       },
+      //寻路算法,终于来了
+      find_and_show_path:function () {
+        if(!this.start_point || !this.end_point){
+          alert("请同时设定起点和终点！");
+          return;
+        }
+        let path = this.find_path();
+        console.log(path);
+        if(path){
+            for(let point of path){
+              point.block_type = "path";
+            }
+        }
+      },
+      /*find_path:function () {
+        //初始化寻路参数
+        for(let point of this.all_points){
+          point.refresh();
+        }
+        let path = [];
+        for(let x=0;x<10;x++){
+          path.push(this.maze_map[x][5]);
+        }
+        return path;
+      }*/
+      find_path:function () {
+        //初始化寻路参数
+        for(let point of this.all_points){
+          point.refresh();
+        }
+        let path = [];
+        for(let x=0;x<10;x++){
+          path.push(this.maze_map[x][5]);
+        }
+        return path;
+      }
     }
   }
 </script>

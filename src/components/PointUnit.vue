@@ -30,6 +30,9 @@
           case "start":
             block_color = "#009933"
             break;
+          case "path":
+            block_color = "#7FB7BE"
+            break;
         }
         return {
           rect:{

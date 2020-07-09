@@ -7,6 +7,7 @@
             this.y = y;
             this.father = null;
             this.G = 999;
+            this.is_blocked = false;
         }
         getH(aim_point){
             return Math.abs(aim_point.x - this.x) + Math.abs(aim_point.y - this.y);
@@ -18,8 +19,12 @@
             return this.x;
             return this.getH(aim_point) + this.getG();
         }
+        toString(){
+          return this.x + "," +this.y;
+        }
     }
     //优先队列,是一个小根堆
+    //只在要出队时才整理队列，使之符合小根堆
     class FinderQueue{
         constructor() {
             this.aim_point = null;
@@ -29,13 +34,17 @@
         enqueue(point){
             this.heap.push(point);
             this.length += 1;
-            this.check_heap();
         }
         dequeue(){
-            let val = this.heap.unshift();
-            this.length -= 1;
+            if(!this.length)
+              return;
             this.check_heap();
+            let val = this.heap.shift();
+            this.length -= 1;
             return val;
+        }
+        is_empty(){
+          return this.length === 0;
         }
         has(item){
             return this.heap.includes(item);
@@ -94,6 +103,7 @@
         exchange_and_check(father,child){
             [this.heap[father],this.heap[child]] = [this.heap[child],this.heap[father]];
             this.check(child);
+            this.check(father);//可能子节点会有更小的值被换上来
         }
     }
     /*class Node{
@@ -116,12 +126,44 @@
     }*/
     let array = [4,6,8,5,3,1,2,0,1];
     let queue = new FinderQueue();
+    for(let i of array){
+      queue.enqueue(new Point(i));
+    }
+    console.log(queue.heap);
+
+
+    function round_attachable_points(point){
+      let points = [];
+      for(let dx=-1;dx<2;dx++){
+        for(let dy=-1;dy<2;dy++){
+          let [x,y] = [point.x+dx,point.y+dy];
+          //在地图内存在，且没有出队，且可以通行
+          if(x > 0 && x < xsize && y > 0 && y < ysize && !visited[x][y] && !point_map[x][y].is_blocked)
+            points.push([next_point,Math.abs(dx)+Math.abs(dy)]);
+        }
+      }
+      return points;
+    }
+
+
+    //初始化
+    let visited = [];
+
     queue.enqueue(start_point);
-    let visited = {};
+
+    let result = null;
     while(1){
-        queue.check_heap();//修改代码，调整刷新时机，不需要每次入队都刷新
+        if(queue.is_empty()){
+          break;
+        }
         let now_minF_point = queue.dequeue();
-        for(let [point,payment] of now_minF_point.round_points()){
+        visited[now_minF_point.x][now_minF_point.y] = true;
+        for(let [point,payment] of round_attachable_points(now_minF_point)){
+              if(point===end_point){
+                point.father = now_minF_point;
+                result = point;
+                break;
+              }
             if(queue.has(point)){
                 if(now_minF_point.G + payment < point.G){
                     point.father = now_minF_point;
@@ -129,8 +171,19 @@
                 }
             }
             else{
-                queue.enqueue(point);
+              queue.enqueue(point);
             }
+        }
+    }
+    let point_list;
+    if(result){
+        point_list = [end_point];
+        let next_point = end_point;
+        while(1){
+          if(next_point===start_point)
+            break;
+          point_list.unshift(next_point.father);
+          next_point = next_point.father;
         }
     }
 </script>
