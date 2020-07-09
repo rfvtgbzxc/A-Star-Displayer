@@ -5,7 +5,6 @@
         @click="handle_click"
         @mouseenter="handle_enter"
     >
-
     </div>
 </template>
 
