@@ -1,0 +1,137 @@
+<html>
+<script>
+    //计算曼哈顿距离
+    class Point{
+        constructor(x,y){
+            this.x = x;
+            this.y = y;
+            this.father = null;
+            this.G = 999;
+        }
+        getH(aim_point){
+            return Math.abs(aim_point.x - this.x) + Math.abs(aim_point.y - this.y);
+        }
+        getG(){
+            return this.G;
+        }
+        getF(aim_point){
+            return this.x;
+            return this.getH(aim_point) + this.getG();
+        }
+    }
+    //优先队列,是一个小根堆
+    class FinderQueue{
+        constructor() {
+            this.aim_point = null;
+            this.heap = [];
+            this.length = 0;
+        }
+        enqueue(point){
+            this.heap.push(point);
+            this.length += 1;
+            this.check_heap();
+        }
+        dequeue(){
+            let val = this.heap.unshift();
+            this.length -= 1;
+            this.check_heap();
+            return val;
+        }
+        has(item){
+            return this.heap.includes(item);
+        }
+        check_heap(){
+            if(this.length === 1)
+                return;
+            let i = parseInt((this.length - 2)/2);
+            while(i > 0){
+                this.check(i);
+                i = parseInt((i-1)/2);
+            }
+            this.check(0);
+        }
+        check(i){
+            let mf = this.heap[i].getF(),
+                lk = i*2+1,rk = i*2+2,
+                lf,rf;
+            if(lk < this.length)
+                lf = this.heap[lk].getF();
+            if(rk < this.length)
+                rf = this.heap[rk].getF();
+            if(rf!=null && rf < mf){
+                if(lf!=null){
+                    if(lf < rf){
+                        // lf 最小
+                        this.exchange_and_check(i,lk);
+                    }
+                    else{
+                        // rf 最小
+                        this.exchange_and_check(i,rk);
+                    }
+                }
+                else{
+                    // rf 最小
+                    this.exchange_and_check(i,rk);
+                }
+            }
+            else if(lf!=null && lf < mf){
+                if(rf!=null){
+                    if(rf < lf){
+                        // rf 最小
+                        this.exchange_and_check(i,rk);
+                    }
+                    else{
+                        // lf 最小
+                        this.exchange_and_check(i,lk);
+                    }
+                }
+                else{
+                    // lf 最小
+                    this.exchange_and_check(i,lk);
+                }
+            }
+        }
+        exchange_and_check(father,child){
+            [this.heap[father],this.heap[child]] = [this.heap[child],this.heap[father]];
+            this.check(child);
+        }
+    }
+    /*class Node{
+        constructor(point) {
+            this.x = point.x;
+            this.y = point.y;
+            this.dir = null;
+            this.G = 0;
+        }
+        getH(aim_point){
+            return Math.abs(aim_point.x - this.x) + Math.abs(aim_point.y - this.y);
+        }
+        getG(){
+            return this.G;
+        }
+        getF(aim_point){
+            return this.x;
+            return this.getH(aim_point) + this.getG();
+        }
+    }*/
+    let array = [4,6,8,5,3,1,2,0,1];
+    let queue = new FinderQueue();
+    queue.enqueue(start_point);
+    let visited = {};
+    while(1){
+        queue.check_heap();//修改代码，调整刷新时机，不需要每次入队都刷新
+        let now_minF_point = queue.dequeue();
+        for(let [point,payment] of now_minF_point.round_points()){
+            if(queue.has(point)){
+                if(now_minF_point.G + payment < point.G){
+                    point.father = now_minF_point;
+                    point.G = now_minF_point.G + payment;
+                }
+            }
+            else{
+                queue.enqueue(point);
+            }
+        }
+    }
+</script>
+</html>
