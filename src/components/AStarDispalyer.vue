@@ -22,7 +22,8 @@
                     v-model="select_model"
             ><span>设置终点</span></label>
             <button @click="clear_all_blocks">清空画面</button>
-            <button @click="find_and_show_path">计算道路</button>
+            <button @click="find_and_show_path('all')">计算道路</button>
+            <button :disabled="disable_step" @click="find_and_show_path('step')">计算道路(单步)</button>
         </DisplayerOption>
         <div
                 ondragstart="return false;" onselectstart="return false;" unselectable="on"
@@ -36,6 +37,7 @@
                     :key="point.ptkey"
                     :boxsize="boxsize"
                     :point="point"
+                    :end_point="end_point"
                     @select_point="handle_point_select"
             />
         </div>
@@ -64,7 +66,7 @@
             this.father = null;
             this.G = 999;
             this.is_blocked = this.block_type === "wall";
-            if(this.block_type === "path")
+            if(this.block_type === "path" || this.block_type === "queue")
                 this.block_type = null;
         }
 
@@ -98,7 +100,10 @@
                 select_model: "set_wall",
 
                 //寻路算法有关
-                visited: []
+                visited: [],
+                //异步展示有关
+                resolver:null,
+                disable_step:false,
             };
         },
         created() {
@@ -142,6 +147,9 @@
             },
             ysize: function () {
                 return this.mapsize[1];
+            },
+            step_running:function(){
+              return this.resolver !== null;
             },
         },
         methods: {
@@ -187,15 +195,24 @@
                 }
                 this.end_point = null;
                 this.start_point = null;
+                this.exit_step();
             },
             //寻路算法,终于来了
-            find_and_show_path: function () {
+            find_and_show_path: async function (type) {
+                if(this.step_running){
+                  if(type==="step"){
+                    this.next_step();
+                    return;
+                  }
+                  else
+                    this.exit_step();
+                }
                 if (!this.start_point || !this.end_point) {
                     alert("请同时设定起点和终点！");
                     return;
                 }
-                let path = this.find_path(this.maze_map,this.start_point,this.end_point);
-                console.log(path);
+                let path = await this.find_path(this.maze_map,this.start_point,this.end_point,type==="step");
+                //console.log(path);
                 if (path) {
                     for (let point of path) {
                         point.block_type = "path";
@@ -203,6 +220,11 @@
                 }
                 else{
                     console.log("没有找到道路！");
+                }
+                //单步运行禁用1.5秒，避免点过
+                if(type==="step"){
+                  this.disable_step = true;
+                  setTimeout(()=>this.disable_step = false,1500);
                 }
             },
             /*find_path:function () {
@@ -230,12 +252,21 @@
                 for (let [dx,dy] of dirs) {
                     let [x, y] = [point.x + dx, point.y + dy];
                     //在地图内存在，且没有出队，且可以通行
-                    if (x > 0 && x < this.xsize && y > 0 && y < this.ysize && !this.visited[x][y] && !this.maze_map[x][y].is_blocked)
+                    if (x >= 0 && x < this.xsize && y >= 0 && y < this.ysize && !this.visited[x][y] && !this.maze_map[x][y].is_blocked)
                         points.push([this.maze_map[x][y], Math.abs(dx) + Math.abs(dy)]);
                 }
                 return points;
             },
-            find_path: function (point_map, start_point, end_point) {
+            next_step:function(){
+              this.resolver();
+            },
+            exit_step:function(){
+              this.resolver = null;
+            },
+            wait_next_step: function(){
+              return new Promise(resolve => this.resolver = ()=>resolve());
+            },
+            find_path: async function (point_map, start_point, end_point, is_step) {
                 //初始化
                 //各点寻路参数初始化
                 for (let point of this.all_points) {
@@ -248,7 +279,7 @@
                         this.visited[i][j] = false;
 
                 let result = null;
-                let queue = new FinderQueue();
+                let queue = new FinderQueue(is_step);
                 queue.aim_point = end_point;
                 queue.enqueue(start_point);
 
@@ -272,7 +303,14 @@
                             queue.enqueue(point);
                         }
                     }
+                    //console.log(queue.heap);
+                    if(result)
+                      break;
+                    if(is_step)
+                      await this.wait_next_step();
                 }
+                //清空resolver,这是是否处于单步运行状态的依据
+                this.exit_step();
                 let path;
                 if (result) {
                     path = [end_point];
@@ -290,15 +328,19 @@
     }
     //算法部分，优先队列
     class FinderQueue {
-        constructor() {
+        constructor(is_step) {
             this.aim_point = null;
             this.heap = [];
             this.length = 0;
+            this.is_step = is_step;
         }
 
         enqueue(point) {
-            this.heap.push(point);
-            this.length += 1;
+          this.heap.push(point);
+          this.length += 1;
+          this.check_heap();
+          if(point.block_type === null && this.is_step)
+            point.block_type = "queue";
         }
 
         dequeue() {
@@ -307,6 +349,8 @@
             this.check_heap();
             let val = this.heap.shift();
             this.length -= 1;
+            if(val.block_type === "queue" && this.is_step)
+              val.block_type = null;
             return val;
         }
 

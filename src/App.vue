@@ -15,7 +15,7 @@ export default {
   },
   data(){
     return {
-      mapsize:[80,80]
+      mapsize:[30,30]
     }
   }
 }
